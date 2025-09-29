@@ -10,12 +10,6 @@ RUN pip3 install boto3 mysql-connector-python
 # Copia todos los archivos del directorio actual al contenedor
 COPY . .
 
-# Establece las credenciales de AWS si lo necesitas en el contenedor
-# Para este ejemplo, asumimos que las credenciales de AWS ya están configuradas
-# en el entorno del EC2 o se pasan como variables de entorno al ejecutar el contenedor.
-# Si las copias directamente (no recomendado por razones de seguridad),
-# puedes descomentar las siguientes líneas:
-
 # COPY ~/.aws /root/.aws
 
 # Comando para ejecutar el script
