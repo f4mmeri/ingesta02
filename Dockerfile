@@ -1,5 +1,22 @@
+# Usa una imagen base con Python
 FROM python:3-slim
+
+# Establece el directorio de trabajo dentro del contenedor
 WORKDIR /programas/ingesta
-RUN pip3 install boto3
+
+# Instala las dependencias necesarias
+RUN pip3 install boto3 mysql-connector-python
+
+# Copia todos los archivos del directorio actual al contenedor
 COPY . .
+
+# Establece las credenciales de AWS si lo necesitas en el contenedor
+# Para este ejemplo, asumimos que las credenciales de AWS ya están configuradas
+# en el entorno del EC2 o se pasan como variables de entorno al ejecutar el contenedor.
+# Si las copias directamente (no recomendado por razones de seguridad),
+# puedes descomentar las siguientes líneas:
+
+# COPY ~/.aws /root/.aws
+
+# Comando para ejecutar el script
 CMD [ "python3", "./ingesta.py" ]
