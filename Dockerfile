@@ -1,16 +1,13 @@
-# Usa una imagen base con Python
-FROM python:3-slim
+FROM python:3.11-slim
 
-# Establece el directorio de trabajo dentro del contenedor
-WORKDIR /programas/ingesta
+# System deps (optional, helpful for PyMySQL)
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
 
-# Instala las dependencias necesarias
-RUN pip3 install boto3 mysql-connector-python
+WORKDIR /app
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copia todos los archivos del directorio actual al contenedor
-COPY . .
+COPY ingesta.py ./
 
-# COPY ~/.aws /root/.aws
-
-# Comando para ejecutar el script
-CMD [ "python3", "./ingesta.py" ]
+# Default command
+CMD ["python", "ingesta.py"]
