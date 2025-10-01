@@ -1,43 +1,54 @@
-import mysql.connector
+import os
 import csv
 import boto3
+import pymysql
 
-# Conexión con la base de datos MySQL
-db_config = {
-    'host': 'localhost',  # Cambiar por tu host
-    'user': 'root',       # Cambiar por tu usuario
-    'password': 'admin123',  # Cambiar por tu contraseña
-    'database': 'data'  # Cambiar por el nombre de tu base de datos
-}
+MYSQL_HOST = os.getenv("MYSQL_HOST", "localhost")
+MYSQL_PORT = int(os.getenv("MYSQL_PORT", "3306"))
+MYSQL_USER = os.getenv("MYSQL_USER", "root")
+MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "")
+MYSQL_DB = os.getenv("MYSQL_DB", "test")
+MYSQL_TABLE = os.getenv("MYSQL_TABLE", "alumnos")
+S3_BUCKET = os.getenv("S3_BUCKET")
+S3_PREFIX = os.getenv("S3_PREFIX", "")
+CSV_NAME = os.getenv("CSV_NAME", f"{MYSQL_TABLE}.csv")
 
-# Conectar a la base de datos
-db_connection = mysql.connector.connect(**db_config)
-cursor = db_connection.cursor()
+if not S3_BUCKET:
+    raise SystemExit("Missing env var S3_BUCKET")
 
-# Consulta para obtener los registros
-cursor.execute("SELECT * nombre_tabla")  # Cambiar por la tabla de tu base de datos
+def export_table_to_csv():
+    conn = pymysql.connect(
+        host=MYSQL_HOST,
+        port=MYSQL_PORT,
+        user=MYSQL_USER,
+        password=MYSQL_PASSWORD,
+        database=MYSQL_DB,
+        cursorclass=pymysql.cursors.Cursor,
+    )
+    try:
+        with conn.cursor() as cur:
+            cur.execute(f"SELECT * FROM `{MYSQL_TABLE}`")
+            rows = cur.fetchall()
+            # Column names
+            headers = [desc[0] for desc in cur.description]
+    finally:
+        conn.close()
 
-# Obtener todos los registros
-registros = cursor.fetchall()
+    out_path = os.path.abspath(CSV_NAME)
+    with open(out_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(headers)
+        writer.writerows(rows)
+    print(f"[OK] CSV generado: {out_path}")
+    return out_path
 
-# Escribir los registros en un archivo CSV
-with open("data.csv", mode='w', newline='', encoding='utf-8') as file:
-    writer = csv.writer(file)
-    # Escribir los encabezados (nombre de las columnas)
-    writer.writerow([i[0] for i in cursor.description])
-    # Escribir los datos
-    writer.writerows(registros)
+def upload_to_s3(file_path: str):
+    s3 = boto3.client("s3")
+    key = f"{S3_PREFIX}/{os.path.basename(file_path)}" if S3_PREFIX else os.path.basename(file_path)
+    s3.upload_file(file_path, S3_BUCKET, key)
+    print(f"[OK] subido a s3://{S3_BUCKET}/{key}")
 
-# Cerrar la conexión con la base de datos
-cursor.close()
-db_connection.close()
-
-# Subir el archivo CSV al bucket S3
-ficheroUpload = "data.csv"
-nombreBucket = "f4mmeri-storage-s2"  # Cambiar por tu bucket S3
-
-s3 = boto3.client('s3')
-response = s3.upload_file(ficheroUpload, nombreBucket, "ingesta/" + ficheroUpload)
-print(response)
-
-print("Ingesta completada")
+if __name__ == "__main__":
+    csv_path = export_table_to_csv()
+    upload_to_s3(csv_path)
+    print("ingesta completada 🚀")
